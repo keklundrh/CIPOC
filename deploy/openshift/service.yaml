@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Service
+metadata:
+    name: cipoc-workbench
+spec: 
+    selector: { app: cipoc-workbench }
+    ports: [{ port: 8000, targetPort: 8000 }] 

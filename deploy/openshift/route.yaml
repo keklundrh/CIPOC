@@ -1,0 +1,13 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: cipoc-workbench
+spec:
+  to:
+    kind: Service
+    name: cipoc-workbench
+    weight: 100
+  port:
+    targetPort: 8000
+  tls:
+    termination: edge

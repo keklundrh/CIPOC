@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cipoc-workbench
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: cipoc-workbench }
+  template:
+    metadata:
+      labels: { app: cipoc-workbench }
+      annotations:
+        image.openshift.io/triggers: >-
+          [{"from":{"kind":"ImageStreamTag","name":"cipoc-workbench:latest"},
+            "fieldPath":"spec.template.spec.containers[0].image"}]
+    spec:
+      containers:
+        - name: workbench
+          image: cipoc-workbench:latest
+          ports: [{ containerPort: 8000 }]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet: { path: /, port: 8000 }
+            initialDelaySeconds: 3
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: cipoc-workbench-data
