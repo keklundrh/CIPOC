@@ -4,15 +4,20 @@ metadata:
   name: cipoc-workbench
 spec:
   replicas: 1
+  triggers:
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - workbench
+        from:
+          kind: ImageStreamTag
+          name: cipoc-workbench:latest
   selector:
     matchLabels: { app: cipoc-workbench }
   template:
     metadata:
       labels: { app: cipoc-workbench }
-      annotations:
-        image.openshift.io/triggers: >-
-          [{"from":{"kind":"ImageStreamTag","name":"cipoc-workbench:latest"},
-            "fieldPath":"spec.template.spec.containers[0].image"}]
     spec:
       containers:
         - name: workbench
