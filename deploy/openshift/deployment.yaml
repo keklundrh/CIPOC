@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: workbench
-          image: image-registry.openshift-image-registry.svc:5000/cipoc-testin/cipoc-workbench:latest
+          image: image-registry.openshift-image-registry.svc:5000/cipoc-testing/cipoc-workbench:latest
           ports: [{ containerPort: 8000 }]
           volumeMounts:
             - name: data
