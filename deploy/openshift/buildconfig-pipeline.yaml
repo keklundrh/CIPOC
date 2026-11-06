@@ -1,0 +1,32 @@
+# Pipeline image BuildConfig — builds the CIPOC orchestrator container.
+#
+# Unlike the workbench BuildConfig (contextDir: packages/cipoc-workbench),
+# this builds from the REPO ROOT because Dockerfile.pipeline needs src/,
+# config/, and scripts/. dockerfilePath points at the root-level file.
+#
+# No GitHub webhook trigger: the pipeline image changes rarely, and every-push
+# rebuilds of a 1.5 GB image are wasteful. Trigger with:
+#   oc start-build cipoc-pipeline
+# The workbench keeps its own webhook (cipoc-workbench-webhook) — unaffected.
+
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: cipoc-pipeline
+spec:
+  source:
+    git:
+      uri: https://github.com/keklundrh/CIPOC.git
+      ref: dev
+    contextDir: .
+    dockerfilePath: Dockerfile.pipeline
+    sourceSecret:
+      name: github-build-secret
+  strategy:
+    dockerStrategy: {}
+  output:
+    to:
+      kind: ImageStreamTag
+      name: cipoc-pipeline:latest
+  triggers:
+    - type: ConfigChange
