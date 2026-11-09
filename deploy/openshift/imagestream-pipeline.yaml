@@ -1,0 +1,9 @@
+# Output ImageStream for the pipeline image (referenced by
+# buildconfig-pipeline.yaml; without it builds stall in New with
+# InvalidOutputReference because the cluster does not auto-create ISs
+# referenced by BuildConfigs on this managed cluster).
+
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: cipoc-pipeline

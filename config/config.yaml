@@ -8,7 +8,7 @@
 # Default LLM configuration (see cipoc.llm.OpenAIConfig).
 llm:
   # model: gpt-5.5
-  model: gpt-oss-120b
+  model: Qwen3.8-27B   
   provider: openai          # "openai" or "anthropic"
 
   # Credentials / endpoint. Prefer environment variables over hardcoding
