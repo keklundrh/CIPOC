@@ -1,0 +1,77 @@
+# One-shot pipeline run for a single case. This is THE launch mechanism.
+#
+# Usage — substitute <case> everywhere (Job name + both paths):
+#   sed 's/SMOKE-001/<case>/g' deploy/openshift/job-run.yaml | oc apply -f -
+#   oc logs -f job/cipoc-run-<case>
+#
+# What it does: runs the orchestrator against one notes bundle, writes the
+# artifact to the shared EFS runs volume, then publishes a copy to the fixed
+# path the workbench serves (--state /data/runs/latest/case_state.json).
+# After the Job completes, refresh the workbench URL to see the new run.
+#
+# Notes source: the `notes` volume below. Shipped default is ConfigMap
+# cipoc-notes-smoke (tiny bundle, read-only, no permission dance). For real
+# batches swap it to PVC cipoc-notes — see README.md for the fsGroup lesson.
+#
+# Path contract (single EFS mount at /data/runs on runner AND workbench):
+#   /data/runs/<case>/case_state.json   per-run artifacts
+#   /data/runs/latest/case_state.json   newest run, served by the workbench
+#
+# Notes: backoffLimit 0 — a failed run stays failed for diagnosis; re-launch
+# with a new Job name. `latest/` is last-writer-wins. The pipeline image has
+# no ENTRYPOINT, so args must carry the full command (see Dockerfile CMD).
+# fsGroup 1001500000 matches the notes PVC's group (set by first write) so the
+# job's random UID can read it.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cipoc-run-smoke-001
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: cipoc-pipeline
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: orchestrator
+          image: image-registry.openshift-image-registry.svc:5000/cipoc-testing/cipoc-pipeline:latest
+          command: ["sh", "-c"]
+          args:
+            - |
+              python -m scripts.run_case_state \
+                --notes /data/notes/note_bundle.json \
+                --output /data/runs/SMOKE-001/case_state.json \
+              && cp /data/runs/SMOKE-001/case_state.json \
+                    /data/runs/latest/case_state.json \
+              && echo PUBLISHED
+          envFrom:
+            - secretRef:
+                name: cipoc-llm-credentials
+          volumeMounts:
+            - name: notes
+              mountPath: /data/notes
+              readOnly: true
+            - name: runs
+              mountPath: /data/runs
+            - name: documents-root
+              mountPath: /app/documents
+              readOnly: true
+            - name: documents-manuals
+              mountPath: /app/documents/manuals
+              readOnly: true
+      volumes:
+        - name: notes
+          configMap:
+            name: cipoc-notes-smoke
+        - name: runs
+          persistentVolumeClaim:
+            claimName: cipoc-runs
+        - name: documents-root
+          configMap:
+            name: cipoc-documents-root
+        - name: documents-manuals
+          configMap:
+            name: cipoc-documents-manuals

@@ -1,0 +1,17 @@
+# Shared runs volume — EFS (ReadWriteMany) so the pipeline Job writes and the
+# workbench Deployment reads the same case_state.json. gp3-csi is RWO-only and
+# cannot be mounted by two pods simultaneously.
+#
+# Data-sensitivity: run artifacts contain full notes (contains_phi=true). This
+# volume is safe for synthetic data; revisit before real patient data.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cipoc-runs
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: efs-sc
+  resources:
+    requests:
+      storage: 5Gi

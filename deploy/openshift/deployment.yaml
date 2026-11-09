@@ -22,10 +22,24 @@ spec:
       containers:
         - name: workbench
           image: image-registry.openshift-image-registry.svc:5000/cipoc-testing/cipoc-workbench:latest
+          args:
+            - "cipoc-workbench"
+            - "serve"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+            - "--state"
+            - "/data/runs/latest/case_state.json"
+            - "--feedback-dir"
+            - "/data/feedback"
           ports: [{ containerPort: 8000 }]
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: runs
+              mountPath: /data/runs
+              readOnly: true
           readinessProbe:
             httpGet: { path: /, port: 8000 }
             initialDelaySeconds: 3
@@ -33,3 +47,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: cipoc-workbench-data
+        - name: runs
+          persistentVolumeClaim:
+            claimName: cipoc-runs

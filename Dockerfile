@@ -9,7 +9,7 @@
 # documents/ (NAACCR dictionaries) is deliberately NOT baked in: it is
 # gitignored and may hold restricted reference data. Mount it at /app/documents
 FROM registry.access.redhat.com/ubi9/python-312:latest
-
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
