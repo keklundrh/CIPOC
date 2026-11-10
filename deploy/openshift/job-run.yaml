@@ -9,9 +9,10 @@
 # path the workbench serves (--state /data/runs/latest/case_state.json).
 # After the Job completes, refresh the workbench URL to see the new run.
 #
-# Notes source: the `notes` volume below. Shipped default is ConfigMap
-# cipoc-notes-smoke (tiny bundle, read-only, no permission dance). For real
-# batches swap it to PVC cipoc-notes — see README.md for the fsGroup lesson.
+# Notes source: ALWAYS PVC cipoc-notes, mounted read-only, filename always
+# <case>.json. Upload bundles via job-upload-notes.yaml (which writes
+# /data/notes/<case>.json). fsGroup 1001500000 is required even for a
+# read-only mount: the PVC directory is group 1001500000, drwxrws---.
 #
 # Path contract (single EFS mount at /data/runs on runner AND workbench):
 #   /data/runs/<case>/case_state.json   per-run artifacts
@@ -20,8 +21,8 @@
 # Notes: backoffLimit 0 — a failed run stays failed for diagnosis; re-launch
 # with a new Job name. `latest/` is last-writer-wins. The pipeline image has
 # no ENTRYPOINT, so args must carry the full command (see Dockerfile CMD).
-# No fsGroup needed: the shipped notes source is a ConfigMap (read-only, no
-# permissions). The fsGroup lesson applies only when notes is a PVC (README).
+# fsGroup 1001500000: required to read the notes PVC (group-owned,
+# drwxrws---) even read-only. Uploader Job uses the same value to write.
 
 apiVersion: batch/v1
 kind: Job
@@ -34,6 +35,8 @@ spec:
       labels:
         app: cipoc-pipeline
     spec:
+      securityContext:
+        fsGroup: 1001500000
       restartPolicy: Never
       containers:
         - name: orchestrator
@@ -42,7 +45,7 @@ spec:
           args:
             - |
               python -m scripts.run_case_state \
-                --notes /data/notes/note_bundle.json \
+                --notes /data/notes/smoke-001.json \
                 --output /data/runs/smoke-001/case_state.json \
               && cp /data/runs/smoke-001/case_state.json \
                     /data/runs/latest/case_state.json \
@@ -64,8 +67,8 @@ spec:
               readOnly: true
       volumes:
         - name: notes
-          configMap:
-            name: cipoc-notes-smoke
+          persistentVolumeClaim:
+            claimName: cipoc-notes
         - name: runs
           persistentVolumeClaim:
             claimName: cipoc-runs

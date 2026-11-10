@@ -147,8 +147,10 @@ oc logs -f job/cipoc-run-<case>
 # refresh workbench when the job completes
 ```
 
-Notes for real batches: see "Processing real data" (section 7) — the uploader
-Job (`job-upload-notes.yaml`) handles the fsGroup dance for you.
+The Job reads `/data/notes/<case>.json` from the notes PVC — upload the
+bundle first via section 7's uploader. The shipped `smoke-001` default reads
+the smoke bundle seeded onto that same PVC (`smoke-001.json`).
+
 
 ### 7. Processing real data
 
