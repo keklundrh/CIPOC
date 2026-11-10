@@ -1,7 +1,7 @@
 # One-shot pipeline run for a single case. This is THE launch mechanism.
 #
 # Usage — substitute <case> everywhere (Job name + both paths):
-#   sed 's/SMOKE-001/<case>/g' deploy/openshift/job-run.yaml | oc apply -f -
+#   sed 's/smoke-001/<case>/g' deploy/openshift/job-run.yaml | oc apply -f -
 #   oc logs -f job/cipoc-run-<case>
 #
 # What it does: runs the orchestrator against one notes bundle, writes the
@@ -20,8 +20,8 @@
 # Notes: backoffLimit 0 — a failed run stays failed for diagnosis; re-launch
 # with a new Job name. `latest/` is last-writer-wins. The pipeline image has
 # no ENTRYPOINT, so args must carry the full command (see Dockerfile CMD).
-# fsGroup 1001500000 matches the notes PVC's group (set by first write) so the
-# job's random UID can read it.
+# No fsGroup needed: the shipped notes source is a ConfigMap (read-only, no
+# permissions). The fsGroup lesson applies only when notes is a PVC (README).
 
 apiVersion: batch/v1
 kind: Job
@@ -43,8 +43,8 @@ spec:
             - |
               python -m scripts.run_case_state \
                 --notes /data/notes/note_bundle.json \
-                --output /data/runs/SMOKE-001/case_state.json \
-              && cp /data/runs/SMOKE-001/case_state.json \
+                --output /data/runs/smoke-001/case_state.json \
+              && cp /data/runs/smoke-001/case_state.json \
                     /data/runs/latest/case_state.json \
               && echo PUBLISHED
           envFrom:

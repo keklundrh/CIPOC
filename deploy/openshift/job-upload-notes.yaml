@@ -1,0 +1,59 @@
+# Uploader: copies one notes bundle from a temporary ConfigMap onto the
+# notes PVC, then you delete the ConfigMap (PHI hygiene — the source copy
+# lives in etcd only until cleanup).
+#
+# Usage (substitute <case> twice: ConfigMap name + PVC filename):
+#   # 1. stage the bundle (PHI exists in etcd until step 3 — keep it brief)
+#   oc create configmap notes-<case> --from-file=<case>.json=/path/to/<case>.json
+#
+#   # 2. copy onto the notes PVC (fsGroup matches the PVC group; a random-UID
+#   #    pod cannot write without it)
+#   sed 's/<case>/case-007/g' deploy/openshift/job-upload-notes.yaml | oc apply -f -
+#   oc wait --for=condition=complete job/upload-notes-<case> --timeout=120s
+#   oc logs job/upload-notes-<case>
+#
+#   # 3. remove the staged copy
+#   oc delete configmap notes-<case>
+#
+# Limitation: ConfigMaps max ~1MB. For larger bundles, either split the
+# bundle or move the notes PVC to EFS (RWX) and transfer directly — see
+# README.md "Processing real data".
+#
+# The manifest itself contains NO PHI — only the cluster ConfigMap created
+# in step 1 does, and step 3 removes it.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upload-notes-<case>
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: cipoc-pipeline
+    spec:
+      securityContext:
+        fsGroup: 1001500000
+      restartPolicy: Never
+      containers:
+        - name: uploader
+          image: image-registry.openshift-image-registry.svc:5000/cipoc-testing/cipoc-pipeline:latest
+          command: ["sh", "-c"]
+          args:
+            - |
+              cp /mnt/cm/<case>.json /data/notes/ \
+              && echo "uploaded: $(ls -la /data/notes/<case>.json)"
+          volumeMounts:
+            - name: notes
+              mountPath: /data/notes
+            - name: staged
+              mountPath: /mnt/cm
+              readOnly: true
+      volumes:
+        - name: notes
+          persistentVolumeClaim:
+            claimName: cipoc-notes
+        - name: staged
+          configMap:
+            name: notes-<case>

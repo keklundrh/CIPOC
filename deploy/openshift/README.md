@@ -51,7 +51,8 @@ flowchart LR
 | `pvc-runs.yaml` | Shared EFS volume (RWX) | Pipeline writes artifacts + `latest/`; workbench reads. gp3 is RWO and cannot be shared between pods — that's why EFS |
 | `pvc-notes.yaml` | Notes batches for real cases | gp3, RWO; populate via uploader Job (see fsGroup lesson below) |
 | `configmaps.yaml` | Documents + smoke notes | Synthetic content only — regenerate when SHIRE data arrives, then move documents to a PVC and delete this file |
-| `job-run.yaml` | THE launch mechanism | One file = one case run; `sed 's/SMOKE-001/<case>/g' \| oc apply -f -` |
+| `job-run.yaml` | THE launch mechanism | One file = one case run; `sed 's/smoke-001/<case>/g' \| oc apply -f -` |
+| `job-upload-notes.yaml` | Uploads one notes bundle to the notes PVC | Stages via temporary ConfigMap (≤1MB); PHI exists in etcd only between stage and cleanup |
 
 ## Fresh-cluster recreation, in order
 
@@ -141,15 +142,46 @@ request).
 ### 6. Subsequent runs
 
 ```bash
-sed 's/SMOKE-001/<case>/g' deploy/openshift/job-run.yaml | oc apply -f -
+sed 's/smoke-001/<case>/g' deploy/openshift/job-run.yaml | oc apply -f -
 oc logs -f job/cipoc-run-<case>
 # refresh workbench when the job completes
 ```
 
-Notes for real batches live on `pvc-notes` (populate via an uploader Job with
-`securityContext.fsGroup: 1001500000` — the PVC's group; a random-UID pod
-cannot write without it). Swap the Job's `notes` volume from the ConfigMap to
-the PVC.
+Notes for real batches: see "Processing real data" (section 7) — the uploader
+Job (`job-upload-notes.yaml`) handles the fsGroup dance for you.
+
+### 7. Processing real data
+
+**Prerequisites (all four, in order — do not skip):**
+1. **PHI approval** for the namespace (`cipoc-testing`) — compliance decision,
+   not a command. Everything below renders/holds PHI once real notes flow.
+2. **Route auth** — the workbench route is currently unauthenticated. Add an
+   OAuth-proxy sidecar or SSO front door before reviewers see real data.
+3. **Real NAACCR dictionaries** — replace the synthetic ones in
+   `cipoc-documents-root` / `cipoc-documents-manuals` (re-run the
+   `oc create configmap` commands from the top of this file with SHIRE files).
+4. **Large-bundle check** — the uploader stages via ConfigMap (≤1MB). Larger
+   bundles need the notes PVC moved to EFS first, or bundle splitting.
+
+**Then the workflow per case:**
+
+```bash
+# upload (see job-upload-notes.yaml header for the full three-step flow:
+# stage ConfigMap → uploader Job → delete ConfigMap)
+sed 's/<case>/case-007/g' deploy/openshift/job-upload-notes.yaml | oc apply -f -
+
+# run
+sed 's/smoke-001/case-007/g' deploy/openshift/job-run.yaml | oc apply -f -
+oc logs -f job/cipoc-run-case-007
+
+# view: refresh the workbench URL (publishes to latest/ → served as --state)
+```
+
+**PHI hygiene:** the staging ConfigMap holds PHI in etcd between upload and
+cleanup — delete it immediately after the uploader completes. For bundles
+too large for ConfigMaps, `oc cp` into a debug pod keeps PHI off etcd
+entirely (but requires the fsGroup mount dance from gotcha #6).
+
 
 ## Hard-won gotchas (each cost a debugging session)
 
